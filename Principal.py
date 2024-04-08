@@ -33,7 +33,7 @@ def execute_sql(command, connectionStringOrigem):
         return command, e  # Retorna o comando e a exceção
 
 #Apenas para Representação Visual
-def format_script(commands):
+def format_script(self, commands):
     baseScript = []
     if commands:
         print('Comandos SQL lidos com sucesso:')
@@ -42,4 +42,4 @@ def format_script(commands):
             baseScript.append(command)
         return baseScript
     else:
-        print('Não foi possível ler os comandos SQL.')
+        self.display_error('Não foi possível ler o Arquivo, verifique:')

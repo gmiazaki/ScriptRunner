@@ -71,6 +71,7 @@ class ScriptRunner(QWidget):
             self.run_button.setText("Iniciar Atualização")
 
     def check_connection(self): 
+        print (self.breakpoint)
         connectionStringOrigem = getConnection()
         try:
             connection = pyodbc.connect(connectionStringOrigem)
@@ -101,13 +102,19 @@ class ScriptRunner(QWidget):
         else:
             #Recebemos os comandos
             commands = read_sql(self)
-            result = format_script(commands)
-            for command in commands:
-                raw_commands = execute_sql(command, connectionStringOrigem)
-                if raw_commands[1] is not None:
-                    error_commands.append(self.reprocess_events(raw_commands))
-            self.display_result(error_commands)
-        return result, raw_commands
+            result = format_script(self, commands)
+            try:
+                for command in commands:
+                    raw_commands = execute_sql(command, connectionStringOrigem)
+                    if raw_commands is None:
+                        break
+                    if raw_commands[1] is not None:
+                        error_commands.append(self.reprocess_events(raw_commands))
+                self.display_result(error_commands)
+                return result, raw_commands
+            except Exception as e:
+                self.display_error('Não foi possível ler o Arquivo, verifique:')
+        
 
     def display_result(self, result):
         flattened_result = []
@@ -122,7 +129,8 @@ class ScriptRunner(QWidget):
             item_str = item_str.replace('\\n', '\n')
             flattened_result.append(item_str)
         self.text_output.setPlainText("\n\n".join(flattened_result))
-        QMessageBox.information(self, "Comparação Concluída", "A Comparação de bases foi concluída sem erros.")
+        if self.text_output.setPlainText("\n\n".join(flattened_result)) is not None:
+            QMessageBox.information(self, "Comparação Concluída", "A Comparação de bases foi concluída sem erros.")
 
 
     def reprocess_events(self, raw_commands):
