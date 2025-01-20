@@ -51,13 +51,13 @@ class ScriptRunner(QWidget):
         if index == 0:  # MS SQL
             self.isMsSQL = True
             self.isOracle = False
-            breakpoint = 'GO'
-            return breakpoint
+            self.breakpoint = 'GO'
+            return  self.breakpoint
         else:  # Oracle
             self.isMsSQL = False
             self.isOracle = True
-            breakpoint = '/'
-            return breakpoint
+            self.breakpoint = '/'
+            return  self.breakpoint
 
     def callIni(self):
         signal_handler.openConfigWindow.emit()
@@ -71,11 +71,10 @@ class ScriptRunner(QWidget):
             self.run_button.setText("Iniciar Atualização")
 
     def check_connection(self): 
-        print (self.breakpoint)
         connectionStringOrigem = getConnection()
         try:
-            connection = pyodbc.connect(connectionStringOrigem)
-            connection.close()
+            with pyodbc.connect(connectionStringOrigem) as connection:
+                connection.close()
             return True
         except pyodbc.Error:
             return False
@@ -93,45 +92,27 @@ class ScriptRunner(QWidget):
         file_name = os.path.join(dir, 'Script.sql')  # Monta o caminho completo para o arquivo SQL
         return dir, file_name
 
-    def start_process(self,):
-        self.check_connection()
+    def start_process(self):
         connectionStringOrigem = getConnection()
         error_commands = []
-        if not self.check_connection:
-            print('Existem Ocorreram erros durante a Atualização, verifique: ')
+        if self.check_connection() is None:
+            self.display_error('Erro ao conectar com o banco de dados.')
         else:
-            #Recebemos os comandos
             commands = read_sql(self)
-            result = format_script(self, commands)
-            try:
-                for command in commands:
-                    raw_commands = execute_sql(command, connectionStringOrigem)
-                    if raw_commands is None:
-                        break
-                    if raw_commands[1] is not None:
-                        error_commands.append(self.reprocess_events(raw_commands))
-                self.display_result(error_commands)
-                return result, raw_commands
-            except Exception as e:
-                self.display_error('Não foi possível ler o Arquivo, verifique:')
-        
+            formatted_script = format_script(self, commands)
+            for command in commands:
+                executed_command, error = execute_sql(self, command, connectionStringOrigem)
+                if error:
+                    error_commands.append((executed_command, str(error)))
+            self.display_result(formatted_script, error_commands)
 
-    def display_result(self, result):
-        flattened_result = []
-        for item in result:
-            if isinstance(item, list):
-                # Se o item for uma lista, converta-a em uma string separada por vírgulas
-                item_str = ', '.join(map(str, item))
-            else:
-                # Se o item não for uma lista, apenas converta-o em uma string
-                item_str = str(item)
-
-            item_str = item_str.replace('\\n', '\n')
-            flattened_result.append(item_str)
-        self.text_output.setPlainText("\n\n".join(flattened_result))
-        if self.text_output.setPlainText("\n\n".join(flattened_result)) is not None:
-            QMessageBox.information(self, "Comparação Concluída", "A Comparação de bases foi concluída sem erros.")
-
+    def display_result(self, script, errors):
+        output = "\n".join(script)
+        if errors:
+            output += "\n\nErros:\n"
+            for command, error in errors:
+                output += f"{command}\nErro: {error}\n"
+        self.text_output.setPlainText(output)
 
     def reprocess_events(self, raw_commands):
         error_commands = []

@@ -5,7 +5,7 @@ def read_sql(self):
     breakpoint = self.db_type(index)
     dir, file_name = self.get_file_path()
     try:
-        with open(file_name, 'r') as sql_file:
+        with open(file_name, 'r', encoding='utf-8') as sql_file:
             commands = []
             actual_command = []
             for line in sql_file:
@@ -22,15 +22,16 @@ def read_sql(self):
     except Exception as e:
         print(f"Ocorreu um erro ao ler o arquivo: {str(e)}")
 
-def execute_sql(command, connectionStringOrigem):
+def execute_sql(self, command, connectionStringOrigem):
     try:
-        connection = pyodbc.connect(connectionStringOrigem)
-        cursor = connection.cursor()
-        cursor.execute(command)
-        connection.close()
-        return command, None  # Retorna o comando e None (sem exceção)
+        with pyodbc.connect(connectionStringOrigem) as connection:
+            connection.autocommit = True
+            cursor = connection.cursor()
+            cursor.execute(command)
+            cursor.commit()
+        return command, None
     except pyodbc.Error as e:
-        return command, e  # Retorna o comando e a exceção
+        return command, e
 
 #Apenas para Representação Visual
 def format_script(self, commands):
